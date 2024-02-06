@@ -10,6 +10,34 @@ contract Main {
     uint256 totalOfficers = 0;
     uint256 totalInvestments = 0;
 
+    // -----------------------Questions---------------------------------------------------
+    string[] questions = [
+        // farming and practicess
+        "Is the farm located in a region certified for organic farming by a recognized body?",
+        "Have there been any recent changes to the farm's size, crop types, or surrounding environment that might impact its organic practices?",
+        "Can you provide detailed satellite imagery or maps of the farm and its surrounding area to verify its location and potential limitations?",
+        "Are there any specific microclimates or unique ecological factors within the region that the farm claims support its organic practices?",
+        "can you provide scientific research or data to substantiate these claims?",
+
+        // Certification and Documentation
+        "Does the farm hold a valid organic certification from a recognized national or international body?",
+        "Have you investigated the issuing body's reputation and history of ensuring accurate certification?",
+        "Can you access and analyze the farm's specific audit reports or inspection  records related to its certification?",
+        "Can you provide copies of the verification reports or protocols and confirm their alignment with recognized organic standards?",
+        
+        // Farming Practices
+        "Does the farm claim to use only natural pest control methods and organic soil amendments?",
+        "Can you obtain the exact brand names or compositions of the natural pest control materials used and verify their organic certification?",
+        "Is there readily available documentation of the farm's record-keeping for application rates, timing, and target pests for these methods?",
+        "Can you provide data or research supporting the effectiveness and minimal environmental impact of the non-organic methods used?",
+
+        // Marketing Claims
+        "Does the farm's marketing exclusively use terms like 'certified organic' or 'USDA Organic'?",
+        "Have you compared the farm's marketing claims to the specific wording allowed by the issuing certification body's guidelines?",
+        "Are there any inconsistencies between the marketing claims and the farm's documented practices on their website or other publicly available information? ",
+        "Can you identify any instances where the farm's marketing might be targeting specific consumer demographics with potentially misleading language?"
+    ];
+
     // -------------------------structs----------------------------------------------------
     enum Status {
         PENDING,
@@ -126,6 +154,10 @@ contract Main {
         return complaints[id];
     }
 
+    function getQuestion(uint256 questionNumber) public view returns (string memory) {
+        return questions[questionNumber];
+    }
+
     function getCampaignForFarm(uint256 farmId) public view returns (Campaign[] memory) {
         Campaign[] memory allCampaigns = new Campaign[](totalCampaigns);
         uint256 j = 0;
@@ -169,6 +201,7 @@ contract Main {
                 j += 1;
             }
         }
+        return allInvestments;
     }
     
     function getUserDetailsFromCampaignId(uint256 campaignId) public view returns (User memory) {
