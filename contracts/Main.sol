@@ -170,6 +170,26 @@ contract Main {
         return allCampaigns;
     }
 
+    function getStats(uint256 farmId) public view returns (uint256[] memory) {
+        uint256[] memory stats = new uint256[](4);
+        uint256 numberOfCompaigns = 0;
+        uint256 investmentAmount = 0;
+        for (uint256 i = 0; i < totalCampaigns; i++) {
+            if (campaigns[i].farmId == farmId) {
+                numberOfCompaigns += 1;
+                for (uint256 j = 0; j < totalInvestments; j++) {
+                    if(investments[j].campaignId == campaigns[i].farmId) {
+                        investmentAmount += investments[j].amount;
+                    }
+                }
+            }
+        }
+        stats[0] = numberOfCompaigns;
+        stats[1] = investmentAmount;
+        stats[2] = 0;
+        stats[3] = 0;
+        return stats;
+    }
     function getAllCampaign() public view returns (Campaign[] memory) {
         Campaign[] memory allCampaigns = new Campaign[](totalCampaigns+1);
         for (uint256 i = 1; i <= totalCampaigns; i++) {
