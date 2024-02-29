@@ -9,7 +9,6 @@ contract Main {
     uint256 totalFarms = 0;
     uint256 totalOfficers = 0;
     uint256 totalInvestments = 0;
-
     // -----------------------Questions---------------------------------------------------
     string[] questions = [
         // farming and practicess
@@ -17,25 +16,25 @@ contract Main {
         "Have there been any recent changes to the farm's size, crop types, or surrounding environment that might impact its organic practices?",
         "Can you provide detailed satellite imagery or maps of the farm and its surrounding area to verify its location and potential limitations?",
         "Are there any specific microclimates or unique ecological factors within the region that the farm claims support its organic practices?",
-        "can you provide scientific research or data to substantiate these claims?",
+        "can you provide scientific research or data to substantiate these claims?"
 
         // Certification and Documentation
-        "Does the farm hold a valid organic certification from a recognized national or international body?",
-        "Have you investigated the issuing body's reputation and history of ensuring accurate certification?",
-        "Can you access and analyze the farm's specific audit reports or inspection  records related to its certification?",
-        "Can you provide copies of the verification reports or protocols and confirm their alignment with recognized organic standards?",
+        // "Does the farm hold a valid organic certification from a recognized national or international body?",
+        // "Have you investigated the issuing body's reputation and history of ensuring accurate certification?",
+        // "Can you access and analyze the farm's specific audit reports or inspection  records related to its certification?",
+        // "Can you provide copies of the verification reports or protocols and confirm their alignment with recognized organic standards?",
         
-        // Farming Practices
-        "Does the farm claim to use only natural pest control methods and organic soil amendments?",
-        "Can you obtain the exact brand names or compositions of the natural pest control materials used and verify their organic certification?",
-        "Is there readily available documentation of the farm's record-keeping for application rates, timing, and target pests for these methods?",
-        "Can you provide data or research supporting the effectiveness and minimal environmental impact of the non-organic methods used?",
+        // // Farming Practices
+        // "Does the farm claim to use only natural pest control methods and organic soil amendments?",
+        // "Can you obtain the exact brand names or compositions of the natural pest control materials used and verify their organic certification?",
+        // "Is there readily available documentation of the farm's record-keeping for application rates, timing, and target pests for these methods?",
+        // "Can you provide data or research supporting the effectiveness and minimal environmental impact of the non-organic methods used?",
 
-        // Marketing Claims
-        "Does the farm's marketing exclusively use terms like 'certified organic' or 'USDA Organic'?",
-        "Have you compared the farm's marketing claims to the specific wording allowed by the issuing certification body's guidelines?",
-        "Are there any inconsistencies between the marketing claims and the farm's documented practices on their website or other publicly available information? ",
-        "Can you identify any instances where the farm's marketing might be targeting specific consumer demographics with potentially misleading language?"
+        // // Marketing Claims
+        // "Does the farm's marketing exclusively use terms like 'certified organic' or 'USDA Organic'?",
+        // "Have you compared the farm's marketing claims to the specific wording allowed by the issuing certification body's guidelines?",
+        // "Are there any inconsistencies between the marketing claims and the farm's documented practices on their website or other publicly available information? ",
+        // "Can you identify any instances where the farm's marketing might be targeting specific consumer demographics with potentially misleading language?"
     ];
 
     // -------------------------structs----------------------------------------------------
@@ -85,12 +84,14 @@ contract Main {
         string[] proofs;
         uint256 yesVotes;
         uint256 noVotes;
-        string deadline;
+        uint256 deadline;
         Status status;
+        string comment;
     }
 
     struct Officer {
         uint256 officerId;
+        string name;
         string description;
         uint[] allocatedComplaints;
     }
@@ -98,8 +99,9 @@ contract Main {
     struct Investment{
         uint256 investmentId;
         uint256 campaignId;
+        uint256 farmId;
         uint256 amount;
-        uint256 investorId;
+        address investorAddress;
     }
 
     // --------------------Mappings-----------------------------------------------------
@@ -109,6 +111,7 @@ contract Main {
     mapping(uint256 => Farm) public farms;
     mapping(uint256 => Campaign) public campaigns;
     mapping(uint256 => Investment) public investments;
+    mapping(uint256 => address) public OfficerIdToAddress;
 
     // ------------------constructor----------------------------------------------------
     constructor() {
@@ -122,6 +125,10 @@ contract Main {
     // ------------------getter--------------------------------------------------------
     function getUserDetails() public view returns (User memory) {
         return users[address(msg.sender)];
+    }
+
+    function getOfficerDetails() public view returns (Officer memory) {
+        return officers[address(msg.sender)];
     }
 
     function getUserFarmDetails() public view returns (Farm memory) {
@@ -148,6 +155,9 @@ contract Main {
         return allComplaints;
     }
 
+    function getAddressFromOfficerId(uint256 id) public view returns (address) {
+        return OfficerIdToAddress[id];
+    }
     function getComplaintDetails(
         uint id
     ) public view returns (Complaint memory) {
@@ -212,11 +222,11 @@ contract Main {
         return allInvestments;
     }
     
-    function getAllInvestmentForInvestor(uint256 investorId) public view returns(Investment[] memory){
+    function getAllInvestmentForInvestor() public view returns(Investment[] memory){
         Investment[] memory allInvestments = new Investment[](totalInvestments);
         uint256 j = 0;
         for (uint256 i = 0; i < totalInvestments; i++) {
-            if (investments[i].investorId == investorId) {
+            if (investments[i].investorAddress == address(msg.sender)) {
                 allInvestments[j] = investments[i];
                 j += 1;
             }
@@ -228,6 +238,13 @@ contract Main {
         return users[address(campaigns[campaignId].receiver)];
     }
     
+    function getComplaintsForOfficer() public view returns (Complaint[] memory) {
+        Complaint[] memory allocatedChallenges = new Complaint[](officers[address(msg.sender)].allocatedComplaints.length);
+        for(uint i=0;i<officers[address(msg.sender)].allocatedComplaints.length;i++) {
+            allocatedChallenges[i] = (complaints[ officers[address(msg.sender)].allocatedComplaints[i] ]);
+        }
+        return allocatedChallenges;
+    }
     
 
 
@@ -247,9 +264,10 @@ contract Main {
         else return false;
     }
     
-    function registerOfficer(string memory description) public {
-        Officer memory officer = Officer(totalOfficers, description, new uint256[](0));
+    function registerOfficer(string memory name, string memory description) public {
+        Officer memory officer = Officer(totalOfficers, name, description, new uint[](0));
         officers[address(msg.sender)] = officer;
+        OfficerIdToAddress[totalOfficers] = address(msg.sender);
         totalOfficers += 1;
     }
 
@@ -266,9 +284,6 @@ contract Main {
         totalFarms += 1;
     }
     
-    // function updateFarmStatus(uint256 farmId, Status status) public {
-    //     farms[farmId].status = status;
-    // }
 
     function createCampaign(
         uint256 farmId,
@@ -295,15 +310,17 @@ contract Main {
         campaigns[id].currentAmount += msg.value;
         investments[totalInvestments].investmentId = totalInvestments;
         investments[totalInvestments].campaignId = id;
+        investments[totalInvestments].farmId = campaigns[id].farmId;
         investments[totalInvestments].amount = msg.value;
-        investments[totalInvestments].investorId = users[address(msg.sender)].userId;
+        investments[totalInvestments].investorAddress = address(msg.sender);
+        totalInvestments += 1;
     }
 
     function createComplaint(
         uint256 farmId,
         string memory description,
         string[] memory proof,
-        string memory deadline
+        uint256 deadline
     ) public payable {
         // require(msg.value == farms[farmId].securityAmount / 10);
         Complaint memory complaint = Complaint(
@@ -316,7 +333,8 @@ contract Main {
             1,
             0,
             deadline,
-            Status.PENDING
+            Status.PENDING,
+            ""
         );
         complaints[totalComplaints] = complaint;
         totalComplaints += 1;
@@ -335,7 +353,29 @@ contract Main {
         }
     }
 
+    function getAllocatedComplaint(uint256 date) public {
+        for(uint i=0; i<totalComplaints; i++) {
+            if(complaints[i].deadline < date && complaints[i].status == Status.PENDING) {
+                complaints[i].officerInCharge = address(msg.sender);
+                officers[address(msg.sender)].allocatedComplaints.push(i);
+            } 
+        }
+    }
 
+    function handleOfficerDecison(uint256 id, uint256 farmId, string memory comment, bool isGuilty) public {
+        complaints[id].comment = comment; 
+        if(isGuilty) {
+            complaints[id].status = Status.ACCEPTED;
+            for(uint i=0; i<totalInvestments; i++) {
+                if(investments[i].farmId == farmId) {
+                    payable(investments[i].investorAddress).transfer(investments[i].amount);
+                }
+            }
+        } else {
+            complaints[id].status = Status.REJECTED;
+        }
+        officers[address(msg.sender)].allocatedComplaints = new uint256[](0);
+    }
     // cehckIfCampaingEndedAndcampaignInvestment
     // function acceptCampaignInvestment(uint id) public {
     //     payable(campaigns[id].receiver).transfer(campaigns[id].currentAmount);
