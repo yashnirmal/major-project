@@ -1,3 +1,4 @@
+
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
@@ -58,8 +59,8 @@ contract Main {
         string location;
         string description;
         string[] documents;
-        // Status status;
-        // address approvedByOfficer;
+        Status status;
+        address approvedByOfficer;
     }
 
     struct Campaign {
@@ -71,6 +72,7 @@ contract Main {
         uint256 targetAmount;
         string description;
         uint256 securityAmount;
+        uint256 earnedAmount;
         Status status;
         address receiver;
     }
@@ -78,6 +80,7 @@ contract Main {
     struct Complaint {
         uint256 complaintId;
         uint256 farmId;
+        uint256 campaignId;
         address creater;
         address officerInCharge;
         string description;
@@ -200,6 +203,7 @@ contract Main {
         stats[3] = 0;
         return stats;
     }
+    
     function getAllCampaign() public view returns (Campaign[] memory) {
         Campaign[] memory allCampaigns = new Campaign[](totalCampaigns+1);
         for (uint256 i = 1; i <= totalCampaigns; i++) {
@@ -292,6 +296,8 @@ contract Main {
         uint256 targetAmount,
         string memory description
     ) public payable {
+        // require(msg.value >= targetAmount / 10);
+        // require(farms[farmId].status == Status.ACCEPTED);
         campaigns[totalCampaigns].campaignId = totalCampaigns;
         campaigns[totalCampaigns].farmId = farmId;
         campaigns[totalCampaigns].cropType = cropType;
@@ -300,6 +306,7 @@ contract Main {
         campaigns[totalCampaigns].targetAmount = targetAmount;
         campaigns[totalCampaigns].description = description;
         campaigns[totalCampaigns].securityAmount = msg.value;
+        campaigns[totalCampaigns].earnedAmount = 0;
         campaigns[totalCampaigns].status = Status.PENDING;
         campaigns[totalCampaigns].receiver = address(msg.sender);
         totalCampaigns += 1;
@@ -307,6 +314,11 @@ contract Main {
     
     
     function fundToCampaign(uint id) public payable {
+        // require(
+        //     farms[campaigns[id].farmId].status == Status.ACCEPTED
+        // && campaigns[id].status == Status.ACCEPTED
+        // && campaigns[id].targetAmount > campaigns[id].currentAmount + msg.value
+        // );
         campaigns[id].currentAmount += msg.value;
         investments[totalInvestments].investmentId = totalInvestments;
         investments[totalInvestments].campaignId = id;
@@ -318,14 +330,16 @@ contract Main {
 
     function createComplaint(
         uint256 farmId,
+        uint256 campaignId,
         string memory description,
         string[] memory proof,
         uint256 deadline
     ) public payable {
-        // require(msg.value == farms[farmId].securityAmount / 10);
+        // require(msg.value == campaigns[campaignId].securityAmount / 3);
         Complaint memory complaint = Complaint(
             totalComplaints,
             farmId,
+            campaignId,
             address(msg.sender),
             address(0),
             description,
@@ -352,87 +366,100 @@ contract Main {
             complaints[id].noVotes += 1;
         }
     }
-
-    function getAllocatedComplaint(uint256 date) public {
-        for(uint i=0; i<totalComplaints; i++) {
-            if(complaints[i].deadline < date && complaints[i].status == Status.PENDING) {
-                complaints[i].officerInCharge = address(msg.sender);
-                officers[address(msg.sender)].allocatedComplaints.push(i);
-            } 
+    
+    function getPendingComplaints() public view returns (Complaint[] memory) {
+        Complaint[] memory pendingComplaints = new Complaint[](totalComplaints);
+        uint256 j = 0;
+        for (uint256 i = 0; i < totalComplaints; i++) {
+            if (complaints[i].status == Status.PENDING) {
+                pendingComplaints[j] = complaints[i];
+                j += 1;
+            }
         }
+        return pendingComplaints;
     }
-
-    function handleOfficerDecison(uint256 id, uint256 farmId, string memory comment, bool isGuilty) public {
-        complaints[id].comment = comment; 
-        if(isGuilty) {
-            complaints[id].status = Status.ACCEPTED;
+    
+    function getPendingCampaigns() public view returns (Campaign[] memory) {
+        Campaign[] memory pendingCampaigns = new Campaign[](totalCampaigns);
+        uint256 j = 0;
+        for (uint256 i = 0; i < totalCampaigns; i++) {
+            if (campaigns[i].status == Status.PENDING) {
+                pendingCampaigns[j] = campaigns[i];
+                j += 1;
+            }
+        }
+        return pendingCampaigns;
+    }
+    
+    function getPendingFarms() public view returns (Farm[] memory) {
+        Farm[] memory pendingFarms = new Farm[](totalFarms);
+        uint256 j = 0;
+        for (uint256 i = 0; i < totalFarms; i++) {
+            if (farms[i].status == Status.PENDING) {
+                pendingFarms[j] = farms[i];
+                j += 1;
+            }
+        }
+        return pendingFarms;
+    }
+    
+    function handleComplaint(uint256 id, bool isAccepted) public {
+        if (isAccepted) {
+            payable(complaints[id].creater).transfer(
+                campaigns[complaints[id].campaignId].securityAmount / 2
+            );
             for(uint i=0; i<totalInvestments; i++) {
-                if(investments[i].farmId == farmId) {
+                if(investments[i].campaignId==complaints[id].campaignId && investments[i].farmId == complaints[id].farmId) {
                     payable(investments[i].investorAddress).transfer(investments[i].amount);
                 }
             }
+            complaints[id].status = Status.ACCEPTED;
         } else {
             complaints[id].status = Status.REJECTED;
         }
         officers[address(msg.sender)].allocatedComplaints = new uint256[](0);
     }
-    // cehckIfCampaingEndedAndcampaignInvestment
-    // function acceptCampaignInvestment(uint id) public {
-    //     payable(campaigns[id].receiver).transfer(campaigns[id].currentAmount);
-    //     campaigns[id].status = Status.ACCEPTED;
-    //     address[] memory contributor = campaigns[id].contributors;
-    //     uint256 farmId = campaigns[id].farmId;
-
-    //     for (uint256 i = 0; i < contributor.length; i++) {
-    //         if (farms[farmId].investments[contributor[i]] == 0) {
-    //             farms[farmId].contributors.push(contributor[i]);
-    //         }
-    //         farms[farmId].investments[contributor[i]] += campaigns[id]
-    //             .investments[contributor[i]];
-    //     }
-
-    //     farms[farmId].fundRaised += campaigns[id].targetAmount;
-    //     campaigns[id].currentAmount = 0;
-    // }
-
-    // function rejectCampaignInvestment(uint id) public {
-    //     campaigns[id].status = Status.REJECTED;
-    //     address[] memory contributor = campaigns[id].contributors;
-    //     for (uint256 i = 0; i < contributor.length; i++) {
-    //         payable(contributor[i]).transfer(
-    //             campaigns[id].investments[contributor[i]]
-    //         );
-    //         campaigns[id].investments[contributor[i]] = 0;
-    //     }
-    // }
-
-    // function updateComplaintStatus(uint id, bool isAccepted) public {
-    //     // check only if officer is making the request
-    //     if (isAccepted) {
-    //         // payable(complaints[id].creater).transfer(
-    //         //     farms[complaints[id].farmId].securityAmount / 5
-    //         // );
-    //         complaints[id].status = Status.ACCEPTED;
-    //     } else {
-    //         complaints[id].status = Status.REJECTED;
-    //     }
-    // }
-
-    // function distributeRewardsToInvesters(
-    //     uint256 campaignId
-    // ) external returns (bool) {
-    //     for (
-    //         uint256 i = 0;
-    //         i < campaigns[campaignId].contributors.length;
-    //         i += 1
-    //     ) {
-    //         uint256 total = campaigns[campaignId].currentAmount;
-    //         uint256 precentage = campaigns[campaignId].investments[
-    //             campaigns[campaignId].contributors[i]
-    //         ] / total;
-    //         uint256 amt = precentage * campaigns[campaignId].currentAmount;
-    //         payable(campaigns[campaignId].contributors[i]).transfer(amt);
-    //     }
-    //     return true;
-    // }
+    
+    function handlePendingCampaign(uint256 id, bool isAccepted) public {
+        if (isAccepted) {
+            campaigns[id].status = Status.ACCEPTED;
+        } else {
+            campaigns[id].status = Status.REJECTED;
+        }
+    }
+    
+    function handlePendingFarms(uint256 id, bool isAccepted) public {
+        if (isAccepted) {
+            farms[id].status = Status.ACCEPTED;
+        } else {
+            farms[id].status = Status.REJECTED;
+        }
+    }
+    
+    function withdrawAmountForFarmer(uint256 campaignId) public {
+        payable(campaigns[campaignId].receiver).transfer(campaigns[campaignId].currentAmount);
+    }
+    
+    function enterProfitFromCampaign(uint256 campaignId) payable public {
+        campaigns[campaignId].earnedAmount += msg.value;
+    }
+    
+    function distributeRewardsToInvesters(uint256 campaignId) public {
+        uint256 totalInvestorForCampaign = 0;
+        for (uint256 i = 0; i < totalInvestments; i++) {
+            if (investments[i].campaignId == campaignId) {
+                totalInvestorForCampaign += 1;
+            }
+        }
+        
+        for (uint256 i = 0; i < totalInvestments; i++) {
+            if (investments[i].campaignId == campaignId) {
+                payable(investments[i].investorAddress).transfer(
+                    (campaigns[campaignId].earnedAmount / totalInvestorForCampaign)
+                );
+                campaigns[campaignId].earnedAmount -= (campaigns[campaignId].earnedAmount / totalInvestorForCampaign);
+            }
+        }
+        payable(campaigns[campaignId].receiver).transfer(campaigns[campaignId].currentAmount + campaigns[campaignId].securityAmount);
+    }
 }
